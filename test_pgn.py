@@ -14,13 +14,12 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 from utils import *
+from tqdm import tqdm
 
 N_CLASSES = 20
 DATA_DIR = './datasets/CIHP'
 LIST_PATH = './datasets/CIHP/list/val.txt'
 DATA_ID_LIST = './datasets/CIHP/list/val_id.txt'
-with open(DATA_ID_LIST, 'r') as f:
-    NUM_STEPS = len(f.readlines()) 
 RESTORE_FROM = './checkpoint/CIHP_pgn'
 
 def main():
@@ -107,7 +106,7 @@ def main():
     head_output, tail_output = tf.unstack(raw_output, num=2, axis=0)
     tail_list = tf.unstack(tail_output, num=20, axis=2)
     tail_list_rev = [None] * 20
-    for xx in xrange(14):
+    for xx in range(14):
         tail_list_rev[xx] = tail_list[xx]
     tail_list_rev[14] = tail_list[15]
     tail_list_rev[15] = tail_list[14]
@@ -176,11 +175,9 @@ def main():
     if not os.path.exists(edge_dir):
         os.makedirs(edge_dir)
     # Iterate over training steps.
-    for step in range(NUM_STEPS):
+    for step in tqdm(range(NUM_STEPS)):
         parsing_, scores, edge_, _ = sess.run([pred_all, pred_scores, pred_edge, update_op])
-        if step % 100 == 0:
-            print('step {:d}'.format(step))
-            print (image_list[step])
+
         img_split = image_list[step].split('/')
         img_id = img_split[-1][:-4]
         
@@ -203,10 +200,32 @@ def main():
     coord.request_stop()
     coord.join(threads)
     
-
-
 if __name__ == '__main__':
+    # All images.
+    all_images = set([filename.split('.')[0] for filename in os.listdir('datasets/CIHP/images')])
+
+    # Check which files were already processed
+    processed = set([filename.split('.')[0] for filename in os.listdir('output/cihp_parsing_maps')])
+
+    # Files which need to be processed still
+    to_process = (all_images - processed)
+
+    LIST_PATH = './datasets/CIHP/list/val.txt'
+    DATA_ID_LIST = './datasets/CIHP/list/val_id.txt'
+
+    # Clear the files
+    open(LIST_PATH, 'w').close()
+    open(DATA_ID_LIST, 'w').close()
+
+    with open(DATA_ID_LIST, 'w') as file:
+        lines = '\n'.join(to_process)
+        file.writelines(lines)
+    
+    with open(LIST_PATH, 'w') as file:
+        lines = '\n'.join([f'/images/{idx}.jpg /labels/{idx}.png' for idx in to_process])
+        file.writelines(lines)
+
+    # Steps to run
+    NUM_STEPS = len(to_process) 
+
     main()
-
-
-##############################################################333
